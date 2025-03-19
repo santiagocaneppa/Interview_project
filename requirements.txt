@@ -1,0 +1,6 @@
+openai
+pdfplumber
+pytesseract
+pdf2image
+pandas
+Pillow
