@@ -1,100 +1,78 @@
-import pdfplumber
-import pytesseract
-from pdf2image import convert_from_path
-import pandas as pd
-import openai
-import json
 import os
+import json
+import openai
+import pandas as pd
+from dotenv import load_dotenv
+from workers.worker_pdfplumber import extract_text_tables
+from workers.worker_ocr import extract_text_ocr
+from workers.worker_image_preprocess import preprocess_image
+from workers.worker_ai_refiner import process_with_openai
 
-# Configuração da API da OpenAI
-openai.api_key = "SUA_OPENAI_API_KEY"
+# Carregar variáveis do arquivo .env
+load_dotenv()
+openai.api_key = os.getenv("OPENAI_API_KEY")
 
-# Definir caminho base do projeto
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 INPUT_DIR = os.path.join(BASE_DIR, "media", "input")
 OUTPUT_DIR = os.path.join(BASE_DIR, "media", "output")
-
-# Garantir que a pasta de saída existe
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-# Listar arquivos na pasta de entrada
-pdf_files = [os.path.join(INPUT_DIR, f) for f in os.listdir(INPUT_DIR) if f.endswith(".pdf")]
 
-
-# Função para extrair tabelas de PDFs estruturados
-def extract_text_tables(pdf_path):
-    extracted_data = []
-    with pdfplumber.open(pdf_path) as pdf:
-        for page in pdf.pages:
-            table = page.extract_table()
-            if table:
-                extracted_data.extend(table)
-    return extracted_data
-
-
-# Função para extrair texto de PDFs com imagens (OCR)
-def extract_text_ocr(pdf_path):
-    extracted_text = ""
-    images = convert_from_path(pdf_path)
-    for img in images:
-        text = pytesseract.image_to_string(img, lang='por')
-        extracted_text += text + "\n"
-    return extracted_text
-
-
-# Função para processar texto extraído usando a OpenAI
-def process_with_openai(text, empreendimento):
+def identify_pdf_type(pdf_path):
+    """
+    Usa IA para identificar o tipo de PDF e escolher o worker adequado.
+    """
     prompt = f"""
-    Extraia as seguintes informações do texto abaixo sobre um empreendimento imobiliário:
-    - Nome do empreendimento
-    - Número da unidade
-    - Status da unidade (Disponível, Reservado, Permuta, Vendido, etc.)
-    - Valor da unidade (se disponível, caso contrário, \"Indisponível\")
+    O arquivo PDF contém dados imobiliários. Determine qual categoria ele pertence:
+    - 'TABELA' se for um PDF com tabelas estruturadas
+    - 'IMAGEM' se for um PDF sem texto direto, apenas imagens
+    - 'TEXTO' se for um PDF com texto estruturado.
 
-    Texto extraído:
-    {text}
+    Retorne apenas a palavra correspondente sem explicações.
 
-    Responda no formato JSON:
-    [
-        {{"nome_empreendimento": "{empreendimento}", "unidade": "101", "disponibilidade": "Disponível", "valor": "R$ 350.000,00"}},
-        {{"nome_empreendimento": "{empreendimento}", "unidade": "102", "disponibilidade": "Reservado", "valor": "Indisponível"}}
-    ]
+    Arquivo: {os.path.basename(pdf_path)}
     """
 
     response = openai.ChatCompletion.create(
         model="gpt-4-turbo",
-        messages=[
-            {"role": "system", "content": "Você é um especialista em extração de dados de documentos imobiliários."},
-            {"role": "user", "content": prompt}],
+        messages=[{"role": "user", "content": prompt}],
         temperature=0
     )
 
-    try:
-        return json.loads(response["choices"][0]["message"]["content"])
-    except:
-        return []
+    return response["choices"][0]["message"]["content"].strip()
 
 
-# Processamento dos PDFs
-all_data = []
-for pdf in pdf_files:
-    empreendimento = os.path.splitext(os.path.basename(pdf))[0]
+def process_pdf(pdf_path):
+    """
+    Encaminha o PDF para o worker correto e gera um CSV estruturado.
+    """
+    doc_type = identify_pdf_type(pdf_path)
 
-    try:
-        extracted_data = extract_text_tables(pdf)
-        extracted_text = extract_text_ocr(pdf) if not extracted_data else ""
+    if doc_type == "TABELA":
+        extracted_data = extract_text_tables(pdf_path)
+    elif doc_type == "IMAGEM":
+        processed_images = preprocess_image(pdf_path)
+        extracted_data = extract_text_ocr(processed_images)
+    elif doc_type == "TEXTO":
+        extracted_data = extract_text_ocr(pdf_path)
+    else:
+        print(f"Erro ao identificar o tipo do PDF: {pdf_path}")
+        return
 
-        # Formatar dados para envio à OpenAI
-        formatted_text = json.dumps(extracted_data) if extracted_data else extracted_text
-        structured_data = process_with_openai(formatted_text, empreendimento)
+    structured_data = process_with_openai(json.dumps(extracted_data))
+    structured_data = json.loads(structured_data)  # Converter resposta JSON da IA
 
-        all_data.extend(structured_data)
-    except Exception as e:
-        print(f"Erro ao processar {pdf}: {e}")
+    # Criar DataFrame com colunas necessárias
+    df = pd.DataFrame(structured_data,
+                      columns=["nome_empreendimento", "unidade", "disponibilidade", "valor", "observações"])
 
-# Criar DataFrame e salvar CSV
-df = pd.DataFrame(all_data, columns=["nome_empreendimento", "unidade", "disponibilidade", "valor"])
-csv_path = os.path.join(OUTPUT_DIR, "resultado_imoveis.csv")
-df.to_csv(csv_path, sep=";", index=False)
+    output_csv = os.path.join(OUTPUT_DIR, "resultado_imoveis.csv")
+    df.to_csv(output_csv, sep=";", index=False)
 
-print(f"Processo concluído! Arquivo salvo em {csv_path}")
+    print(f"Arquivo processado e salvo em {output_csv}")
+
+
+# Processa todos os PDFs da pasta input
+for pdf in os.listdir(INPUT_DIR):
+    if pdf.endswith(".pdf"):
+        process_pdf(os.path.join(INPUT_DIR, pdf))
