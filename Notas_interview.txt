@@ -1,0 +1,5 @@
+Amazon Textract (opção rápida da Amazon mas cara)
+
+Podia usar Regex (porém é muito complexo para curto prazo de tempo)
+
+

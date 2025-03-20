@@ -6,3 +6,6 @@ pandas
 Pillow
 dotenv
 opencv-python
+langchain
+langchain-core
+langchain-openai

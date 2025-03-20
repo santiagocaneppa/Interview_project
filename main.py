@@ -4,19 +4,18 @@ import openai
 import pandas as pd
 import logging
 from dotenv import load_dotenv
-from workers.worker_pdfplumber import extract_text_tables
+from workers.worker_pdfplumber import extract_tables_from_pdf
 from workers.worker_ocr import extract_text_ocr
-from workers.worker_image_preprocess import extract_text_with_positions
-from workers.worker_ai_refiner import process_with_openai
+from workers.worker_image_preprocess import process_ocr_with_langchain
 
 # Configuração do logging
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s',
+    format="%(asctime)s - %(levelname)s - %(message)s",
     handlers=[logging.StreamHandler()]
 )
 
-# Carregar variáveis do arquivo .env
+# Carregar variáveis do .env
 load_dotenv()
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
@@ -25,35 +24,24 @@ INPUT_DIR = os.path.join(BASE_DIR, "media", "input")
 OUTPUT_DIR = os.path.join(BASE_DIR, "media", "output")
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
+# Caminho do CSV consolidado
+output_csv = os.path.join(OUTPUT_DIR, "resultado_imoveis.csv")
+
 
 def identify_pdf_type(pdf_path):
     """
-    Usa IA para identificar o tipo de PDF e escolher o worker adequado.
+    Usa IA para identificar o tipo de PDF e sugerir qual worker deve ser usado.
     """
     logging.info(f"Identificando tipo de PDF: {pdf_path}")
 
     prompt = f"""
     O arquivo PDF contém dados imobiliários e pode conter diferentes formatos de apresentação.
-    Sua tarefa é classificar corretamente o tipo de documento entre três categorias:
+    Sua tarefa é classificar corretamente o tipo do documento entre três categorias:
 
     - 'TABELA': Se houver tabelas organizadas, com colunas bem definidas (Exemplo: lista de unidades, preços, tamanhos).
     - 'IMAGEM': Se for um documento apenas com imagens e sem texto legível.
     - 'TEXTO': Se for um documento apenas textual, sem formatação tabular.
 
-    **Exemplo de uma tabela que deve ser classificada como 'TABELA':**
-    Unidade | Metragem | Entrada R$ | Parcelas | Balões | Financiamento | Preço Total
-    ------- | -------- | ---------- | -------- | ------ | ------------- | ------------
-    204-205 | 67m²    | 48.810,00  | 23x2360  | 4x7000 | 360.940,00    | 492.030,00
-    504-505 | 67m²    | 49.390,00  | 23x2400  | 4x7000 | 367.000,00    | 499.590,00
-
-    **Exemplo de um documento textual que deve ser classificado como 'TEXTO':**
-    "As unidades do Residencial Vila Montreal possuem metragem privativa de 67m² e incluem entrada de R$ 48.810,00.
-    O financiamento pode ser realizado em 23 parcelas de R$ 2.360,00 com balões semestrais de R$ 7.000,00."
-
-    **Exemplo de um documento que deve ser classificado como 'IMAGEM':**
-    - PDF sem texto selecionável, contendo apenas imagens escaneadas.
-
-    **Agora, classifique o seguinte arquivo:** {os.path.basename(pdf_path)}
     Responda apenas com uma das palavras: 'TABELA', 'IMAGEM' ou 'TEXTO'.
     """
 
@@ -68,52 +56,76 @@ def identify_pdf_type(pdf_path):
     return doc_type
 
 
-
 def process_pdf(pdf_path):
     """
-    Encaminha o PDF para o worker correto e gera um CSV estruturado.
+    Determina qual worker usar e processa o PDF de maneira adequada.
     """
     logging.info(f"Processando PDF: {pdf_path}")
-    doc_type = identify_pdf_type(pdf_path)
 
+    # Nome do arquivo PDF sem extensão
+    file_name = os.path.splitext(os.path.basename(pdf_path))[0]
+
+    # **1️⃣ Identificação Automática do Tipo de PDF**
+    #doc_type = identify_pdf_type(pdf_path)
+
+    # **2️⃣ Supervisor pode sobrescrever o tipo, se necessário**
+    logging.info(f"Supervisor pode alterar a escolha automática do worker.")
+
+    # **3️⃣ Escolhe o worker correto com base no tipo identificado**
     extracted_data = None
 
+    doc_type = "IMAGEM"
+
     if doc_type == "TABELA":
-        logging.info("Usando worker de tabelas estruturadas (pdfplumber)")
-        extracted_data = extract_text_tables(pdf_path)
+        logging.info("📊 Usando worker de tabelas estruturadas (pdfplumber)")
+        extracted_data = extract_tables_from_pdf(pdf_path)
+
     elif doc_type == "IMAGEM":
-        logging.info("Usando worker de pré-processamento de imagem e OCR")
-        processed_images = extract_text_with_positions(pdf_path)
-        extracted_data = extract_text_ocr(processed_images)
-    elif doc_type == "TEXTO":
-        logging.info("Usando worker de OCR")
+        logging.info("🖼️ Usando worker de pré-processamento de imagem e OCR")
         extracted_data = extract_text_ocr(pdf_path)
+
+        # **Processamento adicional com IA via LangChain**
+        if extracted_data and "ocr_text" in extracted_data:
+            extracted_data = process_ocr_with_langchain(extracted_data)
+
+    elif doc_type == "TEXTO":
+        logging.info("📄 Usando worker de extração de texto")
+        extracted_data = extract_text_ocr(pdf_path)
+
     else:
-        logging.error(f"Erro ao identificar o tipo do PDF: {pdf_path}")
+        logging.error(f"⚠️ Erro: Tipo de PDF desconhecido ({pdf_path})")
         return
 
-    logging.info("Enviando dados extraídos para IA para refinamento")
-    logging.info(f"Dados extraídos antes do refinamento: {extracted_data}")
-
+    # **4️⃣ Verifica se houve extração válida**
     if not extracted_data:
-        logging.warning(f"Nenhum dado extraído do PDF {pdf_path}")
+        logging.warning(f"⚠️ Nenhum dado extraído do PDF {pdf_path}. Pulando para o próximo arquivo.")
         return
 
-    structured_data = process_with_openai(json.dumps(extracted_data))
-    if isinstance(structured_data, str):
-        structured_data = json.loads(structured_data)  # Converter resposta JSON da IA
+    # **5️⃣ Adiciona nome do arquivo ao JSON extraído**
+    for item in extracted_data:
+        item["arquivo_origem"] = file_name  # Adiciona o nome do PDF como referência
 
-    # Criar DataFrame com colunas necessárias
-    df = pd.DataFrame(structured_data,
-                      columns=["nome_empreendimento", "unidade", "disponibilidade", "valor", "observações"])
+    # **6️⃣ Salva o JSON estruturado**
+    json_output_path = os.path.join(OUTPUT_DIR, f"{file_name}.json")
+    with open(json_output_path, "w", encoding="utf-8") as json_file:
+        json.dump(extracted_data, json_file, indent=4, ensure_ascii=False)
+    logging.info(f"✅ JSON salvo: {json_output_path}")
 
-    output_csv = os.path.join(OUTPUT_DIR, "resultado_imoveis.csv")
-    df.to_csv(output_csv, sep=";", index=False)
+    # **7️⃣ Criação ou atualização do CSV Consolidado**
+    df = pd.DataFrame(extracted_data,
+                      columns=["arquivo_origem", "nome_empreendimento", "unidade", "disponibilidade", "valor",
+                               "observações"])
 
-    logging.info(f"Arquivo processado e salvo em {output_csv}")
+    if os.path.exists(output_csv):
+        df.to_csv(output_csv, sep=";", index=False, mode="a", header=False,
+                  encoding="utf-8")  # Adiciona ao CSV existente
+    else:
+        df.to_csv(output_csv, sep=";", index=False, encoding="utf-8")  # Cria um novo CSV com cabeçalho
+
+    logging.info(f"📂 Dados do arquivo {file_name} adicionados ao CSV consolidado: {output_csv}")
 
 
-# Processa todos os PDFs da pasta input
+# **Executa o processo para cada PDF individualmente**
 for pdf in os.listdir(INPUT_DIR):
     if pdf.endswith(".pdf"):
         process_pdf(os.path.join(INPUT_DIR, pdf))
