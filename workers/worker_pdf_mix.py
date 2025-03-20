@@ -36,7 +36,7 @@ def extract_text_ocr(pdf_path):
     """
     Converte PDF para imagens e extrai texto usando OCR.
     """
-    logging.info(f"📄 Convertendo PDF para imagens e extraindo texto OCR: {pdf_path}")
+    logging.info(f"Convertendo PDF para imagens e extraindo texto OCR: {pdf_path}")
 
     extracted_text = []
     images = pdf2image.convert_from_path(pdf_path, dpi=300)  # Aumenta DPI para melhor precisão
@@ -47,7 +47,7 @@ def extract_text_ocr(pdf_path):
         extracted_text.append(text.strip())
 
     if not extracted_text:
-        logging.warning("⚠️ Nenhum texto extraído do PDF via OCR.")
+        logging.warning("Nenhum texto extraído do PDF via OCR.")
         return None
 
     return {"ocr_text": extracted_text}
@@ -57,7 +57,7 @@ def extract_tables_from_pdf(pdf_path):
     """
     Extrai tabelas e contexto do PDF usando pdfplumber.
     """
-    logging.info(f"📊 Extraindo tabelas do PDF: {pdf_path}")
+    logging.info(f"Extraindo tabelas do PDF: {pdf_path}")
     extracted_tables = []
     context_info = []
 
@@ -74,7 +74,7 @@ def extract_tables_from_pdf(pdf_path):
                 extracted_tables.append(cleaned_table)
 
     if not extracted_tables and not context_info:
-        logging.warning("⚠️ Nenhuma tabela ou texto extraído do PDF.")
+        logging.warning("Nenhuma tabela ou texto extraído do PDF.")
         return None
 
     return {"tables": extracted_tables, "context": context_info}
@@ -84,7 +84,7 @@ def process_pdf_combined(pdf_path):
     """
     Processa PDFs que contêm **TABELAS, IMAGENS e TEXTOS** misturados.
     """
-    logging.info(f"📂 Processando PDF (Misto): {pdf_path}")
+    logging.info(f"Processando PDF (Misto): {pdf_path}")
 
     # Nome do arquivo PDF sem extensão
     file_name = os.path.splitext(os.path.basename(pdf_path))[0]
@@ -101,10 +101,10 @@ def process_pdf_combined(pdf_path):
     }
 
     if not any([extracted_data["tables"], extracted_data["context"], extracted_data["ocr_text"]]):
-        logging.warning(f"⚠️ Nenhum dado relevante extraído do PDF {pdf_path}.")
+        logging.warning(f"Nenhum dado relevante extraído do PDF {pdf_path}.")
         return None
 
-    logging.info("🧠 Enviando dados extraídos para IA via LangChain...")
+    logging.info("Enviando dados extraídos para IA via LangChain...")
 
     # Modelo de IA usando OpenAI via LangChain
     llm = ChatOpenAI(model="gpt-4-turbo", openai_api_key=openai_api_key, temperature=0)
@@ -112,7 +112,6 @@ def process_pdf_combined(pdf_path):
     # Define o modelo de saída (JSON)
     parser = JsonOutputParser()
 
-    # Template do Prompt **MELHORADO PARA MISTO**
     prompt = PromptTemplate(
         template="""
         O seguinte conjunto de informações foi extraído de um PDF imobiliário contendo múltiplos formatos de dados (Tabelas, Imagens e Textos). 
