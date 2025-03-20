@@ -93,15 +93,13 @@ def process_ocr_with_langchain(ocr_data):
                 "nome_empreendimento": "Nome do Empreendimento",
                 "unidade": "204-205",
                 "disponibilidade": "Disponível",
-                "valor": "492.030,00",
-                "observações": "Garden consultar"
+                "valor": "492.030,00"
             }},
             {{
                 "nome_empreendimento": "Nome do Empreendimento",
                 "unidade": "304-305",
                 "disponibilidade": "Reservado",
-                "valor": "499.590,00",
-                "observações": null
+                "valor": "499.590,00"
             }}
         ]
         ```
@@ -113,7 +111,6 @@ def process_ocr_with_langchain(ocr_data):
             - `"unidade"`: Número da unidade. **(string)**
             - `"disponibilidade"`: Estado da unidade (`"Disponível"`, `"Reservado"`, `"Permuta"`, ou `"Indeterminado"` caso não especificado). **(string)**
             - `"valor"`: Valor do imóvel, **sempre no formato `000.000,00`** (exemplo: `"492.030,00"`). Se não existir, preencha com `"Indeterminado"`. **(string)**
-            - `"observações"`: Informações adicionais. Se não houver, retorne `null`. **(string ou null)**
         - O JSON deve ser **100% válido** e **sem explicações adicionais**.
         """,
         input_variables=["ocr_text"]
