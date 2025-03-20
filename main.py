@@ -5,8 +5,7 @@ import pandas as pd
 import logging
 from dotenv import load_dotenv
 from workers.worker_pdfplumber import extract_tables_from_pdf
-from workers.worker_ocr import extract_text_ocr
-from workers.worker_image_preprocess import process_ocr_with_langchain
+from workers.worker_image_preprocess import process_ocr_with_langchain, extract_text_ocr
 
 # Configuração do logging
 logging.basicConfig(
@@ -102,8 +101,17 @@ def process_pdf(pdf_path):
         return
 
     # **5️⃣ Adiciona nome do arquivo ao JSON extraído**
-    for item in extracted_data:
-        item["arquivo_origem"] = file_name  # Adiciona o nome do PDF como referência
+    try:
+        extracted_data = json.loads(extracted_data) if isinstance(extracted_data, str) else extracted_data
+        if isinstance(extracted_data, list):  # Garante que é uma lista de dicionários
+            for item in extracted_data:
+                item["arquivo_origem"] = file_name  # Adiciona o nome do PDF como referência
+        else:
+            logging.error(f"⚠️ Erro: Dados extraídos não estão no formato esperado.")
+            return
+    except json.JSONDecodeError:
+        logging.error("⚠️ Erro ao interpretar resposta da IA. Nenhum dado extraído.")
+        return
 
     # **6️⃣ Salva o JSON estruturado**
     json_output_path = os.path.join(OUTPUT_DIR, f"{file_name}.json")

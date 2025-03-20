@@ -31,30 +31,34 @@ def preprocess_image(image):
 
 def extract_text_ocr(pdf_path):
     """ Converte PDF para imagens e extrai texto usando OCR. """
-    logging.info(f"Convertendo PDF para imagens e extraindo texto OCR: {pdf_path}")
+    logging.info(f"📄 Convertendo PDF para imagens e extraindo texto OCR: {pdf_path}")
 
-    images = pdf2image.convert_from_path(pdf_path)
     extracted_text = []
+    images = pdf2image.convert_from_path(pdf_path)
 
     for img in images:
+        # Pré-processa a imagem antes da extração
         processed_img = preprocess_image(img)
-        text = pytesseract.image_to_string(processed_img, lang="por")  # Extrai texto
+
+        # Executa OCR
+        text = pytesseract.image_to_string(processed_img, lang="por")
         extracted_text.append(text.strip())
 
     if not extracted_text:
-        logging.warning("Nenhum texto extraído do PDF via OCR.")
+        logging.warning("⚠️ Nenhum texto extraído do PDF via OCR.")
         return None
 
+    # Retorna os textos extraídos organizados em um dicionário
     return {"ocr_text": extracted_text}
 
 
 def process_ocr_with_langchain(ocr_data):
     """ Usa LangChain + OpenAI para organizar os dados extraídos corretamente. """
     if not ocr_data or "ocr_text" not in ocr_data:
-        logging.error("Nenhum dado foi extraído para processar via OCR.")
+        logging.error("⚠️ Nenhum dado foi extraído para processar via OCR.")
         return None
 
-    logging.info("Enviando dados extraídos via OCR para a IA via LangChain...")
+    logging.info("🧠 Enviando dados extraídos via OCR para a IA via LangChain...")
 
     # Modelo de IA usando OpenAI via LangChain (com temperatura 0 para máxima precisão)
     llm = ChatOpenAI(model="gpt-4-turbo", openai_api_key=openai_api_key, temperature=0)
@@ -123,5 +127,5 @@ def process_ocr_with_langchain(ocr_data):
         "ocr_text": json.dumps(ocr_data["ocr_text"], indent=2, ensure_ascii=False)
     })
 
-    logging.info("Dados processados com sucesso pela IA para OCR.")
+    logging.info("✅ Dados processados com sucesso pela IA para OCR.")
     return response
