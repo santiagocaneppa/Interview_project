@@ -4,6 +4,7 @@ import logging
 import shutil
 import pdfplumber
 import pdf2image
+import openai
 import pandas as pd
 from dotenv import load_dotenv
 from workers.worker_pdfplumber import extract_tables_from_pdf
@@ -12,6 +13,7 @@ from workers.worker_pdf_mix import process_pdf_combined
 
 # Carregar variáveis do .env
 load_dotenv()
+openai.api_key = os.getenv("OPENAI_API_KEY")
 
 # Configuração do logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
@@ -59,7 +61,7 @@ def check_pdf_content(pdf_path):
 
 
 def identify_pdf_type(pdf_path):
-    """ Determina o tipo do PDF, verificando se há tabelas ou imagens. """
+    """ Determina o tipo do PDF, primeiro por detecção direta, depois via IA se necessário. """
     logging.info(f"Identificando tipo de PDF: {pdf_path}")
 
     detected_type = check_pdf_content(pdf_path)
@@ -68,8 +70,40 @@ def identify_pdf_type(pdf_path):
         logging.info(f"Tipo de PDF identificado automaticamente: {detected_type}")
         return detected_type
 
+    # Se o PDF não pôde ser classificado diretamente, a IA será usada
     logging.info("Usando IA para classificar o tipo do PDF...")
-    return None  # Aqui pode ser chamada uma IA para melhorar a decisão.
+
+    prompt = f"""
+    O arquivo PDF contém **informações imobiliárias** e pode conter diferentes formatos.
+    Sua tarefa é **analisar cuidadosamente** o conteúdo e classificar corretamente o **tipo** do documento entre **três categorias**.
+
+    **Critérios obrigatórios:**
+    - **TABELA** → O PDF contém **tabelas estruturadas reais**, com colunas bem definidas e dados extraíveis por sistemas de processamento.
+      - As tabelas devem ser reconhecidas **diretamente como texto** no documento (não em imagens).
+      - **Se houver apenas imagens de tabelas (digitalizadas ou escaneadas), marque como 'IMAGEM'.**
+
+    - **IMAGEM** → O PDF contém **apenas imagens**, sem tabelas extraíveis diretamente (OCR necessário).
+      - Se todas as tabelas estiverem embutidas em imagens, marque **'IMAGEM'**.
+
+    - **MIX** → O PDF contém **tabelas extraíveis e imagens ao mesmo tempo**.
+      - **Somente selecione 'MIX' se houver tabelas extraíveis reais e imagens significativas ao mesmo tempo.**
+
+    ❗ **IMPORTANTE:**
+    - Responda exclusivamente com uma das seguintes palavras: `TABELA`, `IMAGEM`, `MIX`
+    - **Não inclua explicações ou qualquer outro texto na resposta.**
+
+    Nome do arquivo PDF analisado: {os.path.basename(pdf_path)}
+    """
+
+    response = openai.chat.completions.create(
+        model="gpt-3.5-turbo",
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0
+    )
+
+    doc_type = response.choices[0].message.content.strip()
+    logging.info(f"PDF identificado pela IA como: {doc_type}")
+    return doc_type
 
 
 def process_pdfs(input_dir: str, output_csv_path: str):

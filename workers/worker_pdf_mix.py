@@ -114,63 +114,66 @@ def process_pdf_combined(pdf_path):
 
     prompt = PromptTemplate(
         template="""
-        O seguinte conjunto de informações foi extraído de um PDF imobiliário contendo múltiplos formatos de dados (Tabelas, Imagens e Textos). 
-        Sua tarefa é interpretar, organizar e reestruturar esses dados corretamente.
+            O seguinte conjunto de informações foi extraído de um PDF imobiliário contendo múltiplos formatos de dados (Tabelas, Imagens e Textos). 
+            Sua tarefa é interpretar, organizar e reestruturar esses dados corretamente.
 
-        ⚠ **ATENÇÃO**:
-        - Algumas tabelas podem estar desalinhadas ou incompletas.
-        - Algumas informações podem estar no OCR em vez da tabela.
-        - Todos os campos devem seguir um padrão fixo e, caso algum valor esteja ausente, deve ser preenchido como `"Indeterminado"` ou `null`.
+            ⚠ **ATENÇÃO**:
+            - Algumas tabelas podem estar desalinhadas ou incompletas.
+            - Algumas informações podem estar no OCR em vez da tabela.
+            - Todos os campos devem seguir um padrão fixo e, caso algum valor esteja ausente, deve ser preenchido como `"Indeterminado"` ou `null`.
 
-        ### **Dados extraídos do PDF**
-        **Tabelas extraídas:**
-        ```json
-        {tables}
-        ```
+            ### **Dados extraídos do PDF**
+            **Tabelas extraídas:**
+            ```json
+            {tables}
+            ```
 
-        **Texto complementar extraído do PDF:**
-        ```json
-        {context}
-        ```
+            **Texto complementar extraído do PDF:**
+            ```json
+            {context}
+            ```
 
-        **Texto extraído via OCR do PDF:**
-        ```json
-        {ocr_text}
-        ```
+            **Texto extraído via OCR do PDF:**
+            ```json
+            {ocr_text}
+            ```
 
-        ### **Tarefa**
-        - Identifique e organize corretamente os dados de cada unidade imobiliária.
-        - Combine informações da tabela, contexto e OCR para garantir a extração correta.
-        - Caso algum campo esteja ausente, use `"Indeterminado"`, exceto onde especificado que deve ser `null`.
-        - Formate os valores corretamente.
+            ### **Tarefa**
+            - Identifique e organize corretamente os dados de cada unidade imobiliária.
+            - Combine informações da tabela, contexto e OCR para garantir a extração correta.
+            - Caso algum campo esteja ausente, use `"Indeterminado"`, exceto onde especificado que deve ser `null`.
+            - Formate os valores corretamente.
+            - **Unidades sem valor de venda devem ser registradas no CSV com o valor `"Indisponível"`**.
+            - **O script deve ignorar informações irrelevantes, como cabeçalhos, rodapés e legendas desnecessárias**.
 
-        ### **Formato de saída esperado (JSON)**
-        ```json
-        [
-            {{
-                "nome_empreendimento": "Nome do Empreendimento",
-                "unidade": "204-205",
-                "disponibilidade": "Disponível",
-                "valor": "492.030,00"
-            }},
-            {{
-                "nome_empreendimento": "Nome do Empreendimento",
-                "unidade": "304-305",
-                "disponibilidade": "Reservado",
-                "valor": "499.590,00"
-            }}
-        ]
-        ```
+            ### **Formato de saída esperado (JSON)**
+            ```json
+            [
+                {{
+                    "nome_empreendimento": "Nome do Empreendimento",
+                    "unidade": "204-205",
+                    "disponibilidade": "Disponível",
+                    "valor": "492.030,00"
+                }},
+                {{
+                    "nome_empreendimento": "Nome do Empreendimento",
+                    "unidade": "304-305",
+                    "disponibilidade": "Reservado",
+                    "valor": "499.590,00"
+                }}
+            ]
+            ```
 
-        ### **Regras IMPORTANTES:**
-        - O JSON **DEVE** seguir o formato exato acima, sem campos extras.
-        - **Colunas e seus formatos obrigatórios**:
-            - `"nome_empreendimento"`: Nome do empreendimento imobiliário. **(string)**
-            - `"unidade"`: Número da unidade. **(string)**
-            - `"disponibilidade"`: Estado da unidade (`"Disponível"`, `"Reservado"`, `"Permuta"`, ou `"Indeterminado"` caso não especificado). **(string)**
-            - `"valor"`: Valor do imóvel, **sempre no formato `000.000,00`** (exemplo: `"492.030,00"`). Se não existir, preencha com `"Indeterminado"`. **(string)**
-        - O JSON deve ser **100% válido** e **sem explicações adicionais**.
-        """,
+            ### **Regras IMPORTANTES:**
+            - O JSON **DEVE** seguir o formato exato acima, sem campos extras.
+            - **Colunas e seus formatos obrigatórios**:
+                - `"nome_empreendimento"`: Nome do empreendimento imobiliário. **(string)**
+                - `"unidade"`: Número da unidade. **(string)**
+                - `"disponibilidade"`: Estado da unidade (`"Disponível"`, `"Reservado"`, `"Permuta"`, ou `"Indeterminado"` caso não especificado). **(string)**
+                - `"valor"`: Valor do imóvel, **sempre no formato `000.000,00`** (exemplo: `"492.030,00"`).
+                  - Se não existir, preencha com `"Indisponível"`. **(string)**
+            - O JSON deve ser **100% válido** e **sem explicações adicionais**.
+            """,
         input_variables=["tables", "context", "ocr_text"]
     )
 

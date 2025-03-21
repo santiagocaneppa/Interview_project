@@ -59,57 +59,60 @@ def process_with_langchain(pdf_data):
     # Template do Prompt **MELHORADO**
     prompt = PromptTemplate(
         template="""
-        O seguinte conjunto de tabelas foi extraído de um PDF imobiliário. 
-        Sua tarefa é interpretar, organizar e reestruturar esses dados no formato correto.
+            O seguinte conjunto de tabelas foi extraído de um PDF imobiliário. 
+            Sua tarefa é interpretar, organizar e reestruturar esses dados no formato correto.
 
-        ⚠ **ATENÇÃO**:
-        - Algumas tabelas podem estar desalinhadas ou com colunas incompletas.
-        - Algumas informações podem estar no texto do contexto ao invés da tabela.
-        - Todos os campos devem seguir um padrão fixo e, caso algum valor esteja ausente, deve ser preenchido como `"Indeterminado"` ou `null`.
+            ⚠ **ATENÇÃO**:
+            - Algumas tabelas podem estar desalinhadas ou com colunas incompletas.
+            - Algumas informações podem estar no texto do contexto ao invés da tabela.
+            - Todos os campos devem seguir um padrão fixo e, caso algum valor esteja ausente, deve ser preenchido como `"Indeterminado"` ou `null`.
 
-        ### **Dados extraídos do PDF**
-        **Tabelas extraídas:**
-        ```json
-        {tables}
-        ```
+            ### **Dados extraídos do PDF**
+            **Tabelas extraídas:**
+            ```json
+            {tables}
+            ```
 
-        **Texto complementar extraído do PDF:**
-        ```json
-        {context}
-        ```
+            **Texto complementar extraído do PDF:**
+            ```json
+            {context}
+            ```
 
-        ### **Tarefa**
-        - Você deve organizar os dados para que cada **linha** represente uma unidade imobiliária corretamente preenchida.
-        - Caso algum campo esteja ausente, use `"Indeterminado"`, exceto onde especificado que deve ser `null`.
-        - Se um campo estiver quebrado em várias linhas, combine as informações corretamente.
+            ### **Tarefa**
+            - Você deve organizar os dados para que cada **linha** represente uma unidade imobiliária corretamente preenchida.
+            - Caso algum campo esteja ausente, use `"Indeterminado"`, exceto onde especificado que deve ser `null`.
+            - Se um campo estiver quebrado em várias linhas, combine as informações corretamente.
+            - **Unidades sem valor de venda devem ser registradas no CSV com o valor `"Indisponível"`**.
+            - **O script deve ignorar informações irrelevantes, como cabeçalhos, rodapés e legendas desnecessárias**.
 
-        ### **Formato de saída esperado (JSON)**
-        ```json
-        [
-            {{
-                "nome_empreendimento": "Nome do Empreendimento",
-                "unidade": "204-205",
-                "disponibilidade": "Disponível",
-                "valor": "492.030,00"
-            }},
-            {{
-                "nome_empreendimento": "Nome do Empreendimento",
-                "unidade": "304-305",
-                "disponibilidade": "Reservado",
-                "valor": "499.590,00"
-            }}
-        ]
-        ```
+            ### **Formato de saída esperado (JSON)**
+            ```json
+            [
+                {{
+                    "nome_empreendimento": "Nome do Empreendimento",
+                    "unidade": "204-205",
+                    "disponibilidade": "Disponível",
+                    "valor": "492.030,00"
+                }},
+                {{
+                    "nome_empreendimento": "Nome do Empreendimento",
+                    "unidade": "304-305",
+                    "disponibilidade": "Reservado",
+                    "valor": "499.590,00"
+                }}
+            ]
+            ```
 
-        ### **Regras IMPORTANTES:**
-        - O JSON **DEVE** seguir o formato exato acima, sem campos extras.
-        - **Colunas e seus formatos obrigatórios**:
-            - `"nome_empreendimento"`: Nome do empreendimento imobiliário. **(string)**
-            - `"unidade"`: Número da unidade. **(string)**
-            - `"disponibilidade"`: Estado da unidade (`"Disponível"`, `"Reservado"`, `"Permuta"`, ou `"Indeterminado"` caso não especificado). **(string)**
-            - `"valor"`: Valor do imóvel, **sempre no formato `000.000,00`** (exemplo: `"492.030,00"`). Se não existir, preencha com `"Indeterminado"`. **(string)**
-        - O JSON deve ser **100% válido** e **sem explicações adicionais**.
-        """,
+            ### **Regras IMPORTANTES:**
+            - O JSON **DEVE** seguir o formato exato acima, sem campos extras.
+            - **Colunas e seus formatos obrigatórios**:
+                - `"nome_empreendimento"`: Nome do empreendimento imobiliário. **(string)**
+                - `"unidade"`: Número da unidade. **(string)**
+                - `"disponibilidade"`: Estado da unidade (`"Disponível"`, `"Reservado"`, `"Permuta"`, ou `"Indeterminado"` caso não especificado). **(string)**
+                - `"valor"`: Valor do imóvel, **sempre no formato `000.000,00`** (exemplo: `"492.030,00"`).
+                  - Se não existir, preencha com `"Indisponível"`. **(string)**
+            - O JSON deve ser **100% válido** e **sem explicações adicionais**.
+            """,
         input_variables=["tables", "context"]
     )
 

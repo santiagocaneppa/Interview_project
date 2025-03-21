@@ -66,53 +66,55 @@ def process_ocr_with_langchain(ocr_data):
     # Define o modelo de saída (JSON)
     parser = JsonOutputParser()
 
-    # Template do Prompt **MELHORADO PARA OCR**
     prompt = PromptTemplate(
         template="""
-        O seguinte conteúdo textual foi extraído de um PDF imobiliário usando OCR. 
-        Sua tarefa é interpretar, organizar e reestruturar os dados corretamente.
+            O seguinte conteúdo textual foi extraído de um PDF imobiliário usando OCR. 
+            Sua tarefa é interpretar, organizar e reestruturar os dados corretamente.
 
-        ⚠ **ATENÇÃO**:
-        - Algumas informações podem estar desorganizadas ou desalinhadas devido ao OCR.
-        - Todos os campos devem seguir um padrão fixo e, caso algum valor esteja ausente, deve ser preenchido como `"Indeterminado"` ou `null`.
+            ⚠ **ATENÇÃO**:
+            - Algumas informações podem estar desorganizadas ou desalinhadas devido ao OCR.
+            - Todos os campos devem seguir um padrão fixo e, caso algum valor esteja ausente, deve ser preenchido como `"Indeterminado"` ou `null`.
 
-        ### **Texto extraído via OCR do PDF**
-        ```json
-        {ocr_text}
-        ```
+            ### **Texto extraído via OCR do PDF**
+            ```json
+            {ocr_text}
+            ```
 
-        ### **Tarefa**
-        - Identifique e organize corretamente os dados de cada unidade imobiliária.
-        - Caso algum campo esteja ausente, use `"Indeterminado"`, exceto onde especificado que deve ser `null`.
-        - Combine informações fragmentadas e formate os valores corretamente.
+            ### **Tarefa**
+            - Identifique e organize corretamente os dados de cada unidade imobiliária.
+            - Caso algum campo esteja ausente, use `"Indeterminado"`, exceto onde especificado que deve ser `null`.
+            - Combine informações fragmentadas e formate os valores corretamente.
+            - **Unidades sem valor de venda devem ser registradas no CSV com o valor `"Indisponível"`**.
+            - **O script deve ignorar informações irrelevantes, como cabeçalhos, rodapés e legendas desnecessárias**.
 
-        ### **Formato de saída esperado (JSON)**
-        ```json
-        [
-            {{
-                "nome_empreendimento": "Nome do Empreendimento",
-                "unidade": "204-205",
-                "disponibilidade": "Disponível",
-                "valor": "492.030,00"
-            }},
-            {{
-                "nome_empreendimento": "Nome do Empreendimento",
-                "unidade": "304-305",
-                "disponibilidade": "Reservado",
-                "valor": "499.590,00"
-            }}
-        ]
-        ```
+            ### **Formato de saída esperado (JSON)**
+            ```json
+            [
+                {{
+                    "nome_empreendimento": "Nome do Empreendimento",
+                    "unidade": "204-205",
+                    "disponibilidade": "Disponível",
+                    "valor": "492.030,00"
+                }},
+                {{
+                    "nome_empreendimento": "Nome do Empreendimento",
+                    "unidade": "304-305",
+                    "disponibilidade": "Reservado",
+                    "valor": "499.590,00"
+                }}
+            ]
+            ```
 
-        ### **Regras IMPORTANTES:**
-        - O JSON **DEVE** seguir o formato exato acima, sem campos extras.
-        - **Colunas e seus formatos obrigatórios**:
-            - `"nome_empreendimento"`: Nome do empreendimento imobiliário. **(string)**
-            - `"unidade"`: Número da unidade. **(string)**
-            - `"disponibilidade"`: Estado da unidade (`"Disponível"`, `"Reservado"`, `"Permuta"`, ou `"Indeterminado"` caso não especificado). **(string)**
-            - `"valor"`: Valor do imóvel, **sempre no formato `000.000,00`** (exemplo: `"492.030,00"`). Se não existir, preencha com `"Indeterminado"`. **(string)**
-        - O JSON deve ser **100% válido** e **sem explicações adicionais**.
-        """,
+            ### **Regras IMPORTANTES:**
+            - O JSON **DEVE** seguir o formato exato acima, sem campos extras.
+            - **Colunas e seus formatos obrigatórios**:
+                - `"nome_empreendimento"`: Nome do empreendimento imobiliário. **(string)**
+                - `"unidade"`: Número da unidade. **(string)**
+                - `"disponibilidade"`: Estado da unidade (`"Disponível"`, `"Reservado"`, `"Permuta"`, ou `"Indeterminado"` caso não especificado). **(string)**
+                - `"valor"`: Valor do imóvel, **sempre no formato `000.000,00`** (exemplo: `"492.030,00"`).
+                  - Se não existir, preencha com `"Indisponível"`. **(string)**
+            - O JSON deve ser **100% válido** e **sem explicações adicionais**.
+            """,
         input_variables=["ocr_text"]
     )
 
