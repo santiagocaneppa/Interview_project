@@ -1,11 +1,42 @@
-openai
-pdfplumber
-pytesseract
-pdf2image
-pandas
-Pillow
-dotenv
-opencv-python
-langchain
-langchain-core
-langchain-openai
+# 🚀 Framework e Servidor para API
+fastapi==0.100.0
+uvicorn==0.22.0
+
+# 🔧 Manipulação de variáveis de ambiente
+python-dotenv==1.0.0
+
+# 📄 Manipulação de PDFs
+pdfplumber==0.9.0
+pdf2image==1.16.3
+wand==0.6.13  # Necessário para PDFs com imagens
+
+# 🖼️ OCR e Processamento de Imagens
+pytesseract==0.3.10
+Pillow==10.0.1
+opencv-python-headless==4.8.0.76
+numpy==1.24.3
+
+# 📊 Manipulação de Dados
+pandas==2.0.3
+python-dateutil==2.9.0.post0
+pytz==2025.1
+tzdata==2025.1
+
+# 🤖 OpenAI e LLMs (Corrigido!)
+openai==1.3.5
+langchain==0.2.21  # Versão mais recente sem conflito
+langchain-core==0.2.21
+langchain-openai==0.1.9
+langchain-community==0.0.41
+dataclasses-json==0.6.7  # Necessário para LangChain
+
+# 🌐 Requisições HTTP
+requests==2.31.0
+httpx==0.28.1
+anyio==3.7.1
+aiohttp==3.11.14  # Para chamadas assíncronas na API da OpenAI
+
+# 📝 Logging e Utilitários
+loguru==0.7.0
+packaging==24.2  # Para garantir compatibilidade do Pytesseract
+python-multipart
