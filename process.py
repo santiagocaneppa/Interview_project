@@ -2,6 +2,7 @@ import os
 import json
 import logging
 import shutil
+import unicodedata
 import pdfplumber
 import pdf2image
 import openai
@@ -25,14 +26,12 @@ os.makedirs(TEMP_DIR, exist_ok=True)
 
 
 def check_pdf_content(pdf_path):
-    """ Verifica se o PDF contém texto extraível e/ou imagens incorporadas. """
     has_text = False
     has_images = False
     min_text_length = 50
 
     try:
         extracted_text = ""
-
         with pdfplumber.open(pdf_path) as pdf:
             for page in pdf.pages:
                 text = page.extract_text()
@@ -61,16 +60,13 @@ def check_pdf_content(pdf_path):
 
 
 def identify_pdf_type(pdf_path):
-    """ Determina o tipo do PDF, primeiro por detecção direta, depois via IA se necessário. """
     logging.info(f"Identificando tipo de PDF: {pdf_path}")
-
     detected_type = check_pdf_content(pdf_path)
 
     if detected_type:
         logging.info(f"Tipo de PDF identificado automaticamente: {detected_type}")
         return detected_type
 
-    # Se o PDF não pôde ser classificado diretamente, a IA será usada
     logging.info("Usando IA para classificar o tipo do PDF...")
 
     prompt = f"""
@@ -107,14 +103,6 @@ def identify_pdf_type(pdf_path):
 
 
 def process_pdfs(input_dir: str, output_csv_path: str):
-    """
-    Processa todos os PDFs de um diretório e salva o resultado em um CSV específico.
-
-    Parâmetros:
-        input_dir (str): Caminho da pasta contendo os PDFs a serem processados.
-        output_csv_path (str): Caminho onde o CSV final será salvo.
-    """
-
     logging.info(f"Processando PDFs do diretório: {input_dir}")
     logging.info(f"CSV consolidado será salvo em: {output_csv_path}")
 
@@ -129,7 +117,14 @@ def process_pdfs(input_dir: str, output_csv_path: str):
             logging.info(f"Arquivo movido para temp: {file}")
 
             extracted_data = process_pdf(temp_pdf_path)
+
+            # Obtenção nome do arquivo.pdf para nomear empreendimento
+            file_name = os.path.splitext(file)[0]
+            safe_name = unicodedata.normalize('NFKD', file_name).encode('ASCII', 'ignore').decode('utf-8').replace(" ", "_")
+
             if extracted_data:
+                for row in extracted_data:
+                    row["nome_empreendimento"] = safe_name
                 all_extracted_data.extend(extracted_data)
 
             os.remove(temp_pdf_path)
@@ -137,19 +132,15 @@ def process_pdfs(input_dir: str, output_csv_path: str):
 
     if all_extracted_data:
         df = pd.DataFrame(all_extracted_data, columns=["nome_empreendimento", "unidade", "disponibilidade", "valor"])
-
         df["valor"] = df["valor"].astype(str).str.replace(".", "", regex=False)
         df["valor"] = df["valor"].str.replace(",", ".", regex=False)
-
         df.to_csv(output_csv_path, sep=";", index=False, encoding="utf-8")
         logging.info(f"CSV consolidado salvo em: {output_csv_path}")
-
     else:
         logging.warning(f"Nenhum dado extraído dos PDFs no diretório {input_dir}")
 
 
 def process_pdf(pdf_path):
-    """ Determina o worker correto e processa um único PDF. """
     logging.info(f"Processando PDF: {pdf_path}")
 
     file_name = os.path.splitext(os.path.basename(pdf_path))[0]
