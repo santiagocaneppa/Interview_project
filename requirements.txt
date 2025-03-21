@@ -24,11 +24,11 @@ tzdata==2025.1
 
 # 🤖 OpenAI e LLMs (Corrigido!)
 openai==1.3.5
-langchain==0.2.21  # Versão mais recente sem conflito
-langchain-core==0.2.21
-langchain-openai==0.1.9
-langchain-community==0.0.41
-dataclasses-json==0.6.7  # Necessário para LangChain
+langchain
+langchain-core
+langchain-openai
+langchain-community
+dataclasses-json
 
 # 🌐 Requisições HTTP
 requests==2.31.0
