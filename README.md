@@ -45,10 +45,10 @@ O processo irá realizar a instalação das dependências presentes no projeto
 ### 5. Execução do Servidor FastAPI
 
 ```bash
-uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+uvicorn main:app --host 0.0.0.0 --port 8989 --reload
 ```
 
-Acesse a documentação Swagger em: [http://localhost:8000/docs](http://localhost:8000/docs)
+Acesse a documentação Swagger em: [http://localhost:8989/docs](http://localhost:8989/docs)
 
 ## Uso da API
 
